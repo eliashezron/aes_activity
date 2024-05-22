@@ -24,6 +24,11 @@ use rand::Rng;
 
 ///We're using AES 128 which has 16-byte (128 bit) blocks.
 const BLOCK_SIZE: usize = 16;
+// this was generated using the following code
+// let mut rng = rand::thread_rng();
+// let mut iv = [0u8; 16];
+// rng.fill(&mut iv);
+const IV : [u8;BLOCK_SIZE]= [162, 213, 44, 68, 49, 144, 205, 40, 235, 100, 230, 25, 54, 80, 209, 177];
 
 /// Simple AES encryption
 /// Helper function to make the core AES block cipher easier to understand.
@@ -174,48 +179,44 @@ fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// very first block because it doesn't have a previous block. Typically this IV
 /// is inserted as the first block of ciphertext.
 fn cbc_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    // Remember to generate a random initialization vector for the first block.
 
-    let padded_text = pad(plain_text);
-    let blocks = group(padded_text);
-
-    let mut rng = rand::thread_rng();
-    let mut iv: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    rng.fill(&mut iv);
-
-    // encrypt the iv with the key
-    let mut previous_ciphertext_block = aes_encrypt(iv, &key);
-
-    let mut encrypted_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
-    for block in blocks.iter() {
-        previous_ciphertext_block = aes_encrypt(*block, &previous_ciphertext_block);
-        encrypted_blocks.push(previous_ciphertext_block);
-    }
-
-    let mut ciphertext = un_group(encrypted_blocks);
-
-    // Prepend the IV to the ciphertext
-    ciphertext.splice(0..0, iv.iter().cloned());
-
-    ciphertext
+	let mut cipher_text = Vec::new();
+	let mut previous_block = IV;
+	// We pad the data
+	let padded_data = pad(plain_text);
+	// We group the data into blocks
+	let blocks = group(padded_data);
+	// We iterate over the blocks encrypting each block, we then We extend the cipher_text vector with the encrypted block
+	for block in blocks {
+		// We XOR the block with the previous block
+		let xored_block: [u8; BLOCK_SIZE] = block.iter().zip(&previous_block).map(|(a, b)| a ^ b).collect::<Vec<u8>>().try_into().unwrap();
+		// We then encrypt the xored block
+		let encrypted_block = aes_encrypt(xored_block, &key);
+		// We then set the previous block to the encrypted block
+		previous_block = encrypted_block;
+		// We then extend the cipher_text vector with the encrypted block
+		cipher_text.extend_from_slice(&encrypted_block);
+	}
+	cipher_text
 }
 
 fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    let iv: Vec<u8> = cipher_text[0..BLOCK_SIZE].to_vec();
-    let iv: [u8; BLOCK_SIZE] = iv.try_into().expect("Wrong IV length");
-    let mut previous_ciphertext_block = aes_encrypt(iv, &key);
-
+    let mut plain_text = Vec::new();
+    let mut previous_block = IV;
+    // We group the data into blocks
     let blocks = group(cipher_text);
-
-    // Decrypt each block
-    let mut decrypted_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
-    for block in blocks[1..].iter() {
-        let decrypted_block = aes_decrypt(*block, &previous_ciphertext_block);
-        previous_ciphertext_block = *block;
-        decrypted_blocks.push(decrypted_block);
+    // We iterate over the blocks decrypting each block, we then We extend the plain_text vector with the decrypted block
+    for block in blocks {
+        // We decrypt the block
+        let decrypted_block = aes_decrypt(block, &key);
+        // We XOR the decrypted block with the previous block
+        let xored_block: [u8; BLOCK_SIZE] = decrypted_block.iter().zip(&previous_block).map(|(a, b)| a ^ b).collect::<Vec<u8>>().try_into().unwrap();
+        // We then set the previous block to the encrypted block
+        previous_block = block;
+        // We then extend the plain_text vector with the decrypted block
+        plain_text.extend_from_slice(&xored_block);
     }
-
-    un_pad(un_group(decrypted_blocks))
+    un_pad(plain_text)
 }
 
 /// Another mode which you can implement on your own is counter mode.
