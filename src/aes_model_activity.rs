@@ -237,11 +237,58 @@ fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// inserted as the first block of the ciphertext.
 fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
     // Remember to generate a random nonce
-    todo!()
+    let mut cipher_text = Vec::new();
+	let nonce = [0u8; 8];
+	let counter = 0u64.to_be_bytes();
+	let previous_block = nonce;
+	// We pad the data
+	let padded_data = pad(plain_text);
+	// We group the data into blocks
+	let blocks = group(padded_data);
+	// We iterate over the blocks encrypting each block, we then We extend the cipher_text vector with the encrypted block
+	for block in blocks {
+		// We increment the counter
+		let mut counter_u64 = u64::from_be_bytes(counter);
+		counter_u64 = counter_u64.wrapping_add(1);
+		let counter = counter_u64.to_be_bytes();
+		// We concatenate the nonce and the counter
+		let mut v = nonce.to_vec();
+		v.extend_from_slice(&counter);
+		// We then encrypt the v
+		let encrypted_v = aes_encrypt(v.try_into().unwrap(), &key);
+		// We XOR the block with the encrypted v
+		let xored_block: [u8; BLOCK_SIZE] = block.iter().zip(&encrypted_v).map(|(a, b)| a ^ b).collect::<Vec<u8>>().try_into().unwrap();
+		// We then extend the cipher_text vector with the encrypted block
+		cipher_text.extend_from_slice(&xored_block);
+	}
+	cipher_text
 }
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    todo!()
+    // Remember to generate a random nonce
+	let mut plain_text = Vec::new();
+	let nonce = [0u8; 8];
+	let mut counter = 0u64.to_be_bytes();
+	let previous_block = nonce;
+	// We group the data into blocks
+	let blocks = group(cipher_text);
+	// We iterate over the blocks decrypting each block, we then We extend the plain_text vector with the decrypted block
+	for block in blocks {
+		// We increment the counter
+		let mut counter_u64 = u64::from_be_bytes(counter);
+		counter_u64 = counter_u64.wrapping_add(1);
+		counter = counter_u64.to_be_bytes();
+		// We concatenate the nonce and the counter
+		let mut v = nonce.to_vec();
+		v.extend_from_slice(&counter);
+		// We then encrypt the v
+		let encrypted_v = aes_encrypt(v.try_into().unwrap(), &key);
+		// We XOR the block with the encrypted v
+		let xored_block: [u8; BLOCK_SIZE] = block.iter().zip(&encrypted_v).map(|(a, b)| a ^ b).collect::<Vec<u8>>().try_into().unwrap();
+		// We then extend the plain_text vector with the decrypted block
+		plain_text.extend_from_slice(&xored_block);
+	}
+	un_pad(plain_text)
 }
 
 #[cfg(test)]
