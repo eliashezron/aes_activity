@@ -96,7 +96,7 @@ fn group(data: Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
 }
 
 /// Does the opposite of the group function
-fn ungroup(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
+fn un_group(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
     // We need to flatten the blocks into a single vector
     let mut data = Vec::new();
     // we then extend the data vector with the block using extend_from_slice
@@ -107,7 +107,7 @@ fn ungroup(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
 }
 
 /// Does the opposite of the pad function.
-fn unpad(data: Vec<u8>) -> Vec<u8> {
+fn un_pad(data: Vec<u8>) -> Vec<u8> {
     // We need to get the last byte of the data, which is the number of pad bytes
     if data.is_empty() {
         return data;
@@ -158,7 +158,7 @@ fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
         plain_text.extend_from_slice(&decrypted_block);
     }
     // Finally we unpad the data returning the plain_text
-    unpad(plain_text)
+    un_pad(plain_text)
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
@@ -192,7 +192,7 @@ fn cbc_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
         encrypted_blocks.push(previous_ciphertext_block);
     }
 
-    let mut ciphertext = ungroup(encrypted_blocks);
+    let mut ciphertext = un_group(encrypted_blocks);
 
     // Prepend the IV to the ciphertext
     ciphertext.splice(0..0, iv.iter().cloned());
@@ -215,7 +215,7 @@ fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
         decrypted_blocks.push(decrypted_block);
     }
 
-    unpad(ungroup(decrypted_blocks))
+    un_pad(un_group(decrypted_blocks))
 }
 
 /// Another mode which you can implement on your own is counter mode.
@@ -255,7 +255,7 @@ mod tests {
     fn ungroup_test() {
         let data: Vec<u8> = (0..48).collect();
         let grouped = group(data.clone());
-        let ungrouped = ungroup(grouped);
+        let ungrouped = un_group(grouped);
         assert_eq!(data, ungrouped);
     }
 
@@ -264,13 +264,13 @@ mod tests {
         // An exact multiple of block size
         let data: Vec<u8> = (0..48).collect();
         let padded = pad(data.clone());
-        let unpadded = unpad(padded);
+        let unpadded = un_pad(padded);
         assert_eq!(data, unpadded);
 
         // A non-exact multiple
         let data: Vec<u8> = (0..53).collect();
         let padded = pad(data.clone());
-        let unpadded = unpad(padded);
+        let unpadded = un_pad(padded);
         assert_eq!(data, unpadded);
     }
 
